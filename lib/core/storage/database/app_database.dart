@@ -99,7 +99,7 @@ class AppDatabase extends _$AppDatabase {
 
   Future<List<BookSource>> getBookSources({bool? enabled}) {
     final query = select(bookSources)
-      ..orderBy([(table) => OrderingTerm.asc(table.bookSourceName)]);
+      ..orderBy([(table) => OrderingTerm.asc(table.customOrder)]);
 
     if (enabled != null) {
       query.where((table) => table.enabled.equals(enabled));
@@ -110,7 +110,7 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<BookSource>> watchBookSources({bool? enabled}) {
     final query = select(bookSources)
-      ..orderBy([(table) => OrderingTerm.asc(table.bookSourceName)]);
+      ..orderBy([(table) => OrderingTerm.asc(table.customOrder)]);
 
     if (enabled != null) {
       query.where((table) => table.enabled.equals(enabled));
@@ -123,6 +123,35 @@ class AppDatabase extends _$AppDatabase {
     return (delete(
       bookSources,
     )..where((table) => table.bookSourceUrl.equals(sourceUrl))).go();
+  }
+
+  Future<void> setBookSourceEnabled(String sourceUrl, bool enabled) async {
+    await (update(bookSources)
+          ..where((table) => table.bookSourceUrl.equals(sourceUrl)))
+        .write(BookSourcesCompanion(enabled: Value(enabled)));
+  }
+
+  Future<int?> getBookSourceMinOrder() async {
+    final minOrderExpression = bookSources.customOrder.min();
+    final query = selectOnly(bookSources)..addColumns([minOrderExpression]);
+    final row = await query.getSingleOrNull();
+    return row?.read(minOrderExpression);
+  }
+
+  Future<int?> getBookSourceMaxOrder() async {
+    final maxOrderExpression = bookSources.customOrder.max();
+    final query = selectOnly(bookSources)..addColumns([maxOrderExpression]);
+    final row = await query.getSingleOrNull();
+    return row?.read(maxOrderExpression);
+  }
+
+  Future<void> updateBookSourceOrder({
+    required String sourceUrl,
+    required int customOrder,
+  }) async {
+    await (update(bookSources)
+          ..where((table) => table.bookSourceUrl.equals(sourceUrl)))
+        .write(BookSourcesCompanion(customOrder: Value(customOrder)));
   }
 
   Future<void> replaceBookChapters(
@@ -185,6 +214,19 @@ class AppDatabase extends _$AppDatabase {
     return (select(
       readerPreferences,
     )..where((table) => table.key.equals(key))).getSingleOrNull();
+  }
+
+  Future<int> removeReaderPreference(String key) {
+    return (delete(
+      readerPreferences,
+    )..where((table) => table.key.equals(key))).go();
+  }
+
+  Future<int> removeReaderPreferencesByPrefix(String prefix) {
+    final escapedPrefix = prefix.replaceAll('%', r'\%').replaceAll('_', r'\_');
+    return (delete(
+      readerPreferences,
+    )..where((table) => table.key.like('$escapedPrefix%'))).go();
   }
 }
 

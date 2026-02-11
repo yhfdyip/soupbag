@@ -12,4 +12,10 @@ abstract class BookSourceRepository {
   Future<void> saveBookSources(List<BookSourceEntity> sources);
 
   Future<void> removeBookSource(String sourceUrl);
+
+  Future<void> setBookSourceEnabled(String sourceUrl, bool enabled);
+
+  Future<void> moveBookSourceToTop(String sourceUrl);
+
+  Future<void> moveBookSourceToBottom(String sourceUrl);
 }

@@ -69,6 +69,56 @@ void main() {
         expect(enabledSources.first.bookSourceUrl, 'demo://source/1');
         expect(disabledSources.first.bookSourceUrl, 'demo://source/2');
       });
+
+      test('书源按 customOrder 排序并支持置顶置底', () async {
+        await database.upsertBookSource(
+          BookSourcesCompanion.insert(
+            bookSourceUrl: 'demo://source/a',
+            bookSourceName: 'A源',
+            customOrder: const Value(10),
+          ),
+        );
+        await database.upsertBookSource(
+          BookSourcesCompanion.insert(
+            bookSourceUrl: 'demo://source/b',
+            bookSourceName: 'B源',
+            customOrder: const Value(20),
+          ),
+        );
+        await database.upsertBookSource(
+          BookSourcesCompanion.insert(
+            bookSourceUrl: 'demo://source/c',
+            bookSourceName: 'C源',
+            customOrder: const Value(30),
+          ),
+        );
+
+        final initial = await database.getBookSources();
+        expect(
+          initial.map((item) => item.bookSourceUrl).toList(growable: false),
+          ['demo://source/a', 'demo://source/b', 'demo://source/c'],
+        );
+
+        final minOrder = await database.getBookSourceMinOrder();
+        final maxOrder = await database.getBookSourceMaxOrder();
+        expect(minOrder, 10);
+        expect(maxOrder, 30);
+
+        await database.updateBookSourceOrder(
+          sourceUrl: 'demo://source/c',
+          customOrder: (minOrder ?? 0) - 1,
+        );
+        await database.updateBookSourceOrder(
+          sourceUrl: 'demo://source/a',
+          customOrder: (maxOrder ?? 0) + 1,
+        );
+
+        final moved = await database.getBookSources();
+        expect(
+          moved.map((item) => item.bookSourceUrl).toList(growable: false),
+          ['demo://source/c', 'demo://source/b', 'demo://source/a'],
+        );
+      });
     },
   );
 }

@@ -46,6 +46,31 @@ class BookSourceLocalRepository implements BookSourceRepository {
     await _database.removeBookSourceByUrl(sourceUrl);
   }
 
+  @override
+  Future<void> setBookSourceEnabled(String sourceUrl, bool enabled) {
+    return _database.setBookSourceEnabled(sourceUrl, enabled);
+  }
+
+  @override
+  Future<void> moveBookSourceToTop(String sourceUrl) async {
+    final minOrder = await _database.getBookSourceMinOrder();
+    final nextOrder = (minOrder ?? 0) - 1;
+    await _database.updateBookSourceOrder(
+      sourceUrl: sourceUrl,
+      customOrder: nextOrder,
+    );
+  }
+
+  @override
+  Future<void> moveBookSourceToBottom(String sourceUrl) async {
+    final maxOrder = await _database.getBookSourceMaxOrder();
+    final nextOrder = (maxOrder ?? 0) + 1;
+    await _database.updateBookSourceOrder(
+      sourceUrl: sourceUrl,
+      customOrder: nextOrder,
+    );
+  }
+
   BookSourceEntity _toEntity(BookSource row) {
     return BookSourceEntity(
       bookSourceUrl: row.bookSourceUrl,

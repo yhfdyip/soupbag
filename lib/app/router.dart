@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soupbag/features/bookshelf/presentation/bookshelf_page.dart';
 import 'package:soupbag/features/discovery/presentation/book_detail_page.dart';
 import 'package:soupbag/features/discovery/presentation/discovery_page.dart';
+import 'package:soupbag/features/discovery/presentation/explore_results_page.dart';
 import 'package:soupbag/features/reader/presentation/reader_page.dart';
 import 'package:soupbag/features/settings/presentation/settings_page.dart';
 
@@ -59,6 +60,43 @@ final GoRouter appRouter = GoRouter(
                     bookUrl: readNullableString('bookUrl'),
                     coverUrl: readNullableString('coverUrl'),
                     intro: readNullableString('intro'),
+                  ),
+                );
+              },
+            ),
+
+            GoRoute(
+              path: 'explore-results',
+              pageBuilder: (context, state) {
+                final payload = state.extra;
+                final map = payload is Map
+                    ? payload
+                    : const <String, dynamic>{};
+
+                String readString(String key, {String fallback = ''}) {
+                  final value = map[key];
+                  if (value is String) {
+                    final trimmed = value.trim();
+                    return trimmed.isEmpty ? fallback : trimmed;
+                  }
+                  return fallback;
+                }
+
+                String? readNullableString(String key) {
+                  final value = map[key];
+                  if (value is String) {
+                    final trimmed = value.trim();
+                    return trimmed.isEmpty ? null : trimmed;
+                  }
+                  return null;
+                }
+
+                return CupertinoPage(
+                  child: ExploreResultsPage(
+                    title: readString('title', fallback: '发现结果'),
+                    sourceUrl: readNullableString('sourceUrl'),
+                    sourceName: readNullableString('sourceName'),
+                    exploreUrl: readNullableString('exploreUrl'),
                   ),
                 );
               },

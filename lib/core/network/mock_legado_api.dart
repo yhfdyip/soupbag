@@ -7,6 +7,10 @@ class MockLegadoApi {
     switch (uri.host) {
       case 'search':
         return _search(uri);
+      case 'explore':
+        return _explore(uri);
+      case 'explore-hot':
+        return _exploreHot(uri);
       case 'book-info':
         return _bookInfo(uri);
       case 'toc':
@@ -41,6 +45,42 @@ class MockLegadoApi {
     return jsonEncode({'books': books});
   }
 
+  static String _explore(Uri uri) {
+    final page = int.tryParse(uri.queryParameters['page'] ?? '') ?? 1;
+    return jsonEncode({'books': _buildExploreBooks(page: page, tag: '推荐')});
+  }
+
+  static String _exploreHot(Uri uri) {
+    final page = int.tryParse(uri.queryParameters['page'] ?? '') ?? 1;
+    return jsonEncode({'books': _buildExploreBooks(page: page, tag: '热门')});
+  }
+
+  static List<Map<String, Object>> _buildExploreBooks({
+    required int page,
+    required String tag,
+  }) {
+    final tagKey = tag == '热门' ? 'hot' : 'recommend';
+
+    return [
+      {
+        'name': '$tag 榜单 $page-A',
+        'author': '$tag作者A',
+        'bookUrl': 'mock-$tagKey-$page-1',
+        'coverUrl': 'https://placehold.co/240x320?text=$tag+$page+A',
+        'intro': '$tag 分类推荐书籍 A。',
+        'kind': ['发现', tag],
+      },
+      {
+        'name': '$tag 榜单 $page-B',
+        'author': '$tag作者B',
+        'bookUrl': 'mock-$tagKey-$page-2',
+        'coverUrl': 'https://placehold.co/240x320?text=$tag+$page+B',
+        'intro': '$tag 分类推荐书籍 B。',
+        'kind': ['发现', tag],
+      },
+    ];
+  }
+
   static String _bookInfo(Uri uri) {
     final book = uri.queryParameters['book'] ?? 'mock-book-1';
     final number = book.endsWith('2') ? 2 : 1;
@@ -49,6 +89,10 @@ class MockLegadoApi {
       'name': number == 1 ? 'Mock 冒险（详情）' : 'Mock 纪元（详情）',
       'author': number == 1 ? 'Mock作者A' : 'Mock作者B',
       'intro': '这是 $book 的详情页简介，用于验证 ruleBookInfo 主流程。',
+      'kind': ['轻小说', '冒险'],
+      'wordCount': number == 1 ? '52万字' : '66万字',
+      'lastChapter': number == 1 ? '第520章 归来' : '第661章 回声',
+      'updateTime': '2026-02-11 14:00:00',
       'coverUrl': 'https://placehold.co/240x320?text=Mock+$number',
       'tocUrl': 'mock://toc?book=$book',
     });

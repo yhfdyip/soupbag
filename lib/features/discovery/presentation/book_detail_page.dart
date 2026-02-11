@@ -70,7 +70,9 @@ class _BookDetailPageState extends State<BookDetailPage> {
   }
 
   Future<void> _loadBookInfo() async {
-    if (_loading) return;
+    if (_loading) {
+      return;
+    }
 
     setState(() {
       _loading = true;
@@ -87,13 +89,17 @@ class _BookDetailPageState extends State<BookDetailPage> {
         fallbackIntro: widget.intro,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _bookInfo = detail;
         _message = '详情加载完成';
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _bookInfo = _fallbackBookInfo();
         _message = '详情加载失败，已使用搜索结果兜底';
@@ -108,7 +114,9 @@ class _BookDetailPageState extends State<BookDetailPage> {
   }
 
   Future<void> _addToShelf({required bool openReader}) async {
-    if (_busy) return;
+    if (_busy) {
+      return;
+    }
 
     final info = _bookInfo ?? _fallbackBookInfo();
 
@@ -128,7 +136,9 @@ class _BookDetailPageState extends State<BookDetailPage> {
         tocUrl: info.tocUrl,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       if (openReader) {
         context.go(
           '/reader',
@@ -145,7 +155,9 @@ class _BookDetailPageState extends State<BookDetailPage> {
         _message = '已加入书架：${book.name}';
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _message = openReader ? '加入书架并阅读失败' : '加入书架失败';
       });
@@ -165,6 +177,7 @@ class _BookDetailPageState extends State<BookDetailPage> {
       final candidate = (info?.author ?? widget.author ?? '').trim();
       return candidate.isEmpty ? '未知作者' : candidate;
     })();
+    final sourceText = info?.sourceName ?? widget.sourceName;
 
     return CustomScrollView(
       slivers: [
@@ -177,19 +190,39 @@ class _BookDetailPageState extends State<BookDetailPage> {
               children: [
                 ShadCard(
                   title: Text(info?.name ?? widget.name),
-                  description: Text('$authorText · ${widget.sourceName}'),
+                  description: Text('$authorText · $sourceText'),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('书籍链接：${info?.bookUrl ?? widget.bookUrl ?? '无'}'),
                       const SizedBox(height: 4),
                       Text('目录链接：${info?.tocUrl ?? '无'}'),
+                      if (info?.kind?.trim().isNotEmpty ?? false) ...[
+                        const SizedBox(height: 4),
+                        Text('分类：${info!.kind}'),
+                      ],
+                      if (info?.wordCount?.trim().isNotEmpty ?? false) ...[
+                        const SizedBox(height: 4),
+                        Text('字数：${info!.wordCount}'),
+                      ],
+                      if (info?.latestChapter?.trim().isNotEmpty ?? false) ...[
+                        const SizedBox(height: 4),
+                        Text('最新章节：${info!.latestChapter}'),
+                      ],
+                      if (info?.updateTime?.trim().isNotEmpty ?? false) ...[
+                        const SizedBox(height: 4),
+                        Text('更新时间：${info!.updateTime}'),
+                      ],
                       if ((info?.coverUrl ?? widget.coverUrl)
                               ?.trim()
                               .isNotEmpty ??
                           false) ...[
                         const SizedBox(height: 4),
                         Text('封面链接：${info?.coverUrl ?? widget.coverUrl}'),
+                      ],
+                      if (info?.downloadUrls.isNotEmpty ?? false) ...[
+                        const SizedBox(height: 4),
+                        Text('下载链接：${info!.downloadUrls.length} 个'),
                       ],
                     ],
                   ),

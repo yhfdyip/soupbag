@@ -295,6 +295,7 @@ class _ReaderPageState extends State<ReaderPage> {
       final chapters = await _readerService.fetchChapters(
         sourceUrl: sourceUrl,
         bookUrl: bookUrl,
+        tocUrl: _currentBook?.tocUrl,
       );
 
       final book = _currentBook;

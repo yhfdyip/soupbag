@@ -488,3 +488,335 @@ lib/
 
 - 仅做文本小说阅读；漫画/图片章节相关能力暂不实现。
 - 因此不对齐 legado 的图片章节样式、缩放、相关滚动策略。
+
+---
+
+## 12. legado 文件级迁移台账（主流程优先）
+
+### 12.1 迁移执行规则
+
+- 每个功能按“先定位 legado 源码 -> 再 Flutter 实现 -> 再记录差异”执行。
+- 每次只迁移少量关键文件，优先保证主流程可用与可回归。
+- 当前阶段仅覆盖文本小说能力；漫画/图片章节相关文件全部后置。
+
+### 12.2 当前批次（P0）
+
+| 优先级 | legado 文件 | Flutter 对应文件 | 状态 | 备注 |
+|---|---|---|---|---|
+| P0 | `app/model/webBook/BookInfo.kt` | `lib/legado/model/web_book/book_info.dart` | ✅ 已迁移 | 新增 `LegadoBookInfoAnalyzer`，覆盖 `init/name/author/intro/kind/wordCount/lastChapter/updateTime/coverUrl/tocUrl/downloadUrls/canReName` 基础解析 |
+| P0 | `app/model/webBook/WebBook.kt`（`getBookInfoAwait`） | `lib/features/reader/domain/services/legado_reader_service.dart` | ✅ 已对齐主干 | 详情抓取入口改为调用 `BookInfo` 分析器；保留“抓取失败兜底”策略 |
+| P0 | `app/ui/book/info/BookInfoActivity.kt` | `lib/features/discovery/presentation/book_detail_page.dart` | ✅ 主流程完成 | 详情展示 + 入书架 + 加入并阅读已打通，复杂菜单能力后置 |
+
+### 12.3 下一批（P1）
+
+| 优先级 | legado 文件 | Flutter 目标文件 | 状态 | 备注 |
+|---|---|---|---|---|
+| P1 | `app/model/webBook/BookChapterList.kt` | `lib/legado/model/web_book/book_chapter_list.dart` | ✅ 已迁移（主流程） | 目录规则解析已从 `LegadoReaderService` 抽离到 legado 模块目录 |
+| P1 | `app/model/webBook/BookContent.kt` | `lib/legado/model/web_book/book_content.dart` | ✅ 已迁移（主流程） | 正文规则解析已从服务层抽离，支持 JSON/HTML 基础路径 |
+| P1 | `app/model/webBook/WebBook.kt`（`getChapterListAwait/getContentAwait`） | `lib/features/reader/domain/services/legado_reader_service.dart` | ✅ 主流程已对齐 | 服务层当前仅负责编排请求与结果入库，解析职责已下沉 |
+
+
+### 12.4 本轮追加完成（2026-02-11）
+
+- ✅ 已新增 `lib/legado/model/web_book/book_chapter_list.dart`，对齐 `BookChapterList.kt` 的“目录规则解析”职责（当前先覆盖主流程所需 JSON 路径场景）。
+- ✅ 已新增 `lib/legado/model/web_book/book_content.dart`，对齐 `BookContent.kt` 的“正文规则解析”职责（当前先覆盖主流程所需 JSON/HTML 基础路径场景）。
+- ✅ `LegadoReaderService` 已改为“流程编排层”，目录与正文解析下沉到 `lib/legado/model/web_book/*`。
+
+
+### 12.5 本轮追加完成（WebBook 编排层）
+
+- ✅ 已新增 `lib/legado/model/web_book/web_book.dart`，对应 legado `WebBook.kt` 的主流程编排职责（详情/目录/正文获取）。
+- ✅ `lib/features/reader/domain/services/legado_reader_service.dart` 进一步收敛为应用层服务，底层抓取与规则解析统一委托 `LegadoWebBook`。
+- ✅ 目录链路新增 `tocUrl` 回退策略：当 `ruleToc.url` 缺失时，优先使用书籍已解析到的 `tocUrl`。
+
+
+### 12.6 本轮追加完成（BookList / 搜索链路）
+
+- ✅ 已新增 `lib/legado/model/web_book/book_list.dart`，对应 legado `BookList.kt` 的搜索列表解析职责（当前覆盖 JSON/HTML 主流程规则子集）。
+- ✅ `lib/legado/model/web_book/web_book.dart` 已新增 `searchBook(...)`，由 WebBook 统一承接搜索请求与列表解析。
+- ✅ `lib/features/discovery/domain/services/legado_search_service.dart` 改为调用 `LegadoWebBook.searchBook(...)`，发现搜索链路与 legado 模块层级对齐。
+- ✅ 新增单测 `test/legado/model/web_book/book_list_analyzer_test.dart`，覆盖 JSON/HTML 解析与列表反转行为。
+
+
+### 12.7 本轮追加完成（ruleExplore / 发现链路）
+
+- ✅ `lib/legado/model/web_book/web_book.dart` 新增 `exploreBook(...)`，按 legado `WebBook.exploreBookAwait` 角色承接发现请求。
+- ✅ `lib/features/discovery/domain/services/legado_search_service.dart` 新增 `explore(...)`，支持按 `exploreUrl + ruleExplore` 聚合发现结果。
+- ✅ `lib/features/discovery/presentation/discovery_page.dart` 新增“加载发现推荐”入口，主流程可直接验证 `ruleExplore`。
+- ✅ `lib/core/network/mock_legado_api.dart` 与内置示例书源补齐 `mock://explore`、`exploreUrl`、`ruleExplore`。
+- ✅ 新增测试 `test/features/discovery/legado_search_service_test.dart`，覆盖 `search` 与 `explore` 两条链路。
+
+
+### 12.8 本轮追加完成（exploreKinds / 发现分类）
+
+- ✅ legado 对照已补齐：`../legado/app/src/main/java/io/legado/app/help/source/BookSourceExtensions.kt` 与 `../legado/app/src/main/java/io/legado/app/data/entities/rule/ExploreKind.kt`。
+- ✅ 已新增 `lib/legado/model/web_book/explore_kinds.dart`，按 legado 兼容两类发现分类格式：JSON 数组、`title::url`（支持 `&&` / 换行分隔）。
+- ✅ 已扩展 `lib/legado/model/web_book/web_book.dart`：新增 `getExploreKinds(...)`，并在 `exploreBook(...)` 默认 URL 选择中优先复用分类解析结果。
+- ✅ 已扩展 `lib/features/discovery/domain/services/legado_search_service.dart`：新增 `getExploreKinds(...)`，按书源聚合发现分类。
+- ✅ 已扩展 `lib/features/discovery/presentation/discovery_page.dart`：新增“加载发现分类”入口与分类点击加载能力（不影响既有搜索/推荐按钮）。
+- ✅ 已补齐 `mock://` 示例：`lib/core/network/mock_legado_api.dart` 新增 `mock://explore-hot`，`Settings` 内置示例源改为多分类 `exploreUrl`。
+- ✅ 已新增测试 `test/legado/model/web_book/explore_kinds_test.dart`，并扩展 `test/features/discovery/legado_search_service_test.dart` 覆盖分类列表与按分类加载。
+- ⚠️ 与 legado 的已知差异：`<js>` / `@js:` 动态分类暂未执行，当前阶段按“主流程优先 + 仅文本小说”继续后置。
+
+### 12.9 本轮追加完成（ExploreKind.style / exploreScreen 样式对齐）
+
+- ✅ legado 对照已补齐：`../legado/app/src/main/java/io/legado/app/data/entities/rule/FlexChildStyle.kt` 与 `../legado/app/src/main/assets/web/help/md/ruleHelp.md` 的发现 `style` 示例。
+- ✅ 已扩展 `lib/legado/model/web_book/explore_kinds.dart`：新增 `LegadoFlexChildStyle`，支持从 `exploreUrl` 的 JSON 分类项解析 `style`。
+- ✅ 已扩展 `lib/legado/model/web_book/web_book.dart`：`getExploreKinds(...)` 会把 `source.exploreScreen` 解析为样式映射，并对未显式配置 `style` 的分类做样式补齐。
+- ✅ 已扩展发现域模型 `lib/features/discovery/domain/models/explore_kind_entity.dart`，透传样式字段到 UI 层。
+- ✅ 已扩展 `lib/features/discovery/presentation/discovery_page.dart`：分类按钮支持 `layout_flexBasisPercent / layout_alignSelf / layout_wrapBefore` 的 Flutter 近似渲染。
+- ✅ 已更新内置示例源 `lib/features/settings/presentation/settings_page.dart`：使用 JSON `exploreUrl` + `exploreScreen`，可直接验证样式效果。
+- ✅ 已扩展测试：
+  - `test/legado/model/web_book/explore_kinds_test.dart` 新增样式解析与 `exploreScreen` 映射覆盖。
+  - `test/features/discovery/legado_search_service_test.dart` 新增分类样式透传覆盖。
+- ⚠️ 与 legado 的已知差异：`layout_flexGrow/layout_flexShrink` 在 Flutter `Wrap` 中仅保留字段与透传，当前未做完全等价布局引擎。
+
+### 12.10 本轮追加完成（分类点击按书源加载 + 发现结果信息补齐）
+
+- ✅ legado 对照已补齐：`../legado/app/src/main/java/io/legado/app/ui/book/explore/ExploreShowViewModel.kt` 与 `ExploreShowActivity.kt`，确认“进入分类后按单一书源 + 指定 exploreUrl 拉取”的行为边界。
+- ✅ 已扩展 `lib/features/discovery/domain/services/legado_search_service.dart`：`explore(...)` 新增 `sourceUrl` 参数；当传入时仅请求该书源，避免多书源串流。
+- ✅ 已扩展 `lib/features/discovery/presentation/discovery_page.dart`：分类按钮点击时传入当前分组 `sourceUrl`，行为与 legado 的分类进入一致。
+- ✅ 已扩展 `lib/features/discovery/domain/models/search_result_entity.dart`：补齐 `kind/wordCount/latestChapter` 字段，便于发现列表展示更多信息。
+- ✅ 已扩展发现结果卡片：展示“最新章节/分类/字数/简介摘要”（有值才显示），保持主流程操作入口不变。
+- ✅ 已扩展测试 `test/features/discovery/legado_search_service_test.dart`：新增“按分类点击仅请求目标书源”回归用例，并补充字段透传覆盖。
+- ⚠️ 与 legado 的已知差异：当前发现结果仍走单页聚合视图，尚未拆分为 legado 的独立 `ExploreShowActivity` + 上拉分页加载体验。
+
+### 12.11 本轮追加完成（独立发现结果页 + 上拉分页）
+
+- ✅ legado 对照已补齐：`../legado/app/src/main/java/io/legado/app/ui/book/explore/ExploreShowActivity.kt`、`ExploreShowViewModel.kt`、`ExploreShowAdapter.kt`。
+- ✅ 已新增独立页面 `lib/features/discovery/presentation/explore_results_page.dart`：用于承接发现分类结果展示，支持滚动触底自动加载下一页。
+- ✅ 已在 `lib/app/router.dart` 新增路由 `/discovery/explore-results`，并通过 `extra` 传递 `title/sourceUrl/sourceName/exploreUrl`。
+- ✅ 已改造 `lib/features/discovery/presentation/discovery_page.dart`：
+  - “加载发现推荐”改为跳转独立发现结果页；
+  - 分类按钮改为跳转独立发现结果页并传入当前书源与分类 URL。
+- ✅ 独立发现结果页支持：
+  - 首屏加载、加载失败重试、触底分页、无更多提示；
+  - 结果卡片显示最新章节/分类/字数/简介；
+  - 查看详情、加入并阅读入口。
+- ✅ `SearchResultEntity` 字段已补齐到发现展示所需（`kind/wordCount/latestChapter`）。
+- ⚠️ 与 legado 的已知差异：当前未实现“书架在架状态”角标联动（`isInBookshelf` 实时刷新），先保证主流程与分页可用。
+
+### 12.12 本轮追加完成（发现结果在架状态联动）
+
+- ✅ legado 对照已补齐：`../legado/app/src/main/java/io/legado/app/ui/book/explore/ExploreShowAdapter.kt`（`isInBookshelf` 角标逻辑）与 `ExploreShowViewModel.kt`（书架集合更新）。
+- ✅ 已扩展 `lib/features/discovery/presentation/explore_results_page.dart`：
+  - 订阅 `watchBookshelf()`，实时维护发现结果页的在架标识集合；
+  - 采用 `name-author / name / bookUrl` 三类 key 与 legado 一致做匹配；
+  - 结果卡片新增“已在书架”状态提示与按钮文案切换（`继续阅读/快速阅读`）。
+- ✅ 页面生命周期已处理：离开页面时取消书架订阅，避免资源泄露。
+- ⚠️ 与 legado 的已知差异：当前“继续阅读”仍复用“加入并阅读”流程（幂等 upsert），后续可再细化为直接读取书架已存书籍打开。
+
+### 12.13 本轮追加完成（继续阅读直开书架记录）
+
+- ✅ 已在 `lib/features/discovery/presentation/explore_results_page.dart` 对“已在书架”场景做行为对齐：
+  - 先查询本地书架并匹配已存书籍（`name-author / name / bookUrl`）；
+  - 命中后直接进入阅读页，不再经过“加入书架”写入流程。
+- ✅ 未命中时保持原行为：执行加入书架并进入阅读，保证兼容。
+- ✅ “已在书架”按钮文案保留“继续阅读”，行为已与文案一致。
+
+### 12.14 本轮追加完成（发现结果卡片布局与交互对齐）
+
+- ✅ legado 对照已补齐：`../legado/app/src/main/java/io/legado/app/ui/book/explore/ExploreShowAdapter.kt`、`../legado/app/src/main/res/layout/item_search.xml`。
+- ✅ 已改造 `lib/features/discovery/presentation/explore_results_page.dart`：
+  - 结果项改为“整卡点击进入详情”，与 legado 的 item 点击行为一致（详情流由 `BookDetailPage` 承接）。
+  - 卡片布局调整为“左封面 + 右信息”结构，封面对齐为 `80x110` 比例。
+  - 保留并强化 legado 同款核心信息：在架绿点、书名、作者、分类标签、最新章节、简介摘要。
+  - 分页加载失败重试按钮禁用条件优化为仅受加载状态控制，避免误禁用。
+- ✅ 已移除发现结果页中不属于 legado `ExploreShowAdapter` 主职责的“页内快速阅读”操作，减少与详情页职责重叠。
+- ⚠️ 与 legado 的已知差异：
+  - 暂未做 `payload` 局部刷新优化（当前为 `setState` 整体刷新，功能正确）。
+  - `item_search.xml` 中 `bv_originCount` 角标在当前“单书源分类结果页”场景未启用（阶段性接受）。
+
+### 12.15 本轮追加完成（在架状态局部刷新，对齐 payload 思路）
+
+- ✅ legado 对照已补齐：`../legado/app/src/main/java/io/legado/app/ui/book/explore/ExploreShowActivity.kt` 中 `notifyItemRangeChanged(..., payload)` 与 `ExploreShowAdapter.kt` 的 `bindChange`。
+- ✅ 已改造 `lib/features/discovery/presentation/explore_results_page.dart`：
+  - 新增 `_bookshelfVersion`（`ValueNotifier<int>`），书架流变化时仅递增版本号，不再 `setState` 整页刷新。
+  - 卡片内“在架绿点”和“在架提示文案”改为 `ValueListenableBuilder` 局部重建，行为上对齐 legado 的 payload 局部更新思路。
+  - 页面销毁时补充 `_bookshelfVersion.dispose()`，避免监听对象泄露。
+- ✅ 结果：发现结果页在书架状态变化时，仅刷新必要子区域，避免列表整体重建造成的额外开销。
+- ⚠️ 与 legado 的已知差异：Flutter 端仍未实现 RecyclerView 级别的 `payload` 精细范围更新；当前为“组件级局部重建”的等价近似。
+
+### 12.16 本轮追加完成（originCount 来源计数角标）
+
+- ✅ legado 对照已补齐：`../legado/app/src/main/res/layout/item_search.xml` 中 `bv_originCount` 与 `ExploreShowAdapter.kt` 列表信息展示。
+- ✅ 已扩展 `lib/features/discovery/domain/models/search_result_entity.dart`：新增 `originCount` 字段（默认 `1`）。
+- ✅ 已改造 `lib/features/discovery/domain/services/legado_search_service.dart`：
+  - 搜索/发现聚合结果改为按“书名+作者（缺作者回退书名）”合并同名项；
+  - 统计去重后的来源数，写入 `originCount`；
+  - 保持首个来源作为详情入口来源，兼容当前详情链路。
+- ✅ 已改造 `lib/features/discovery/presentation/explore_results_page.dart`：当 `originCount > 1` 时展示来源角标（`x源`）。
+- ✅ 已扩展测试 `test/features/discovery/legado_search_service_test.dart`：
+  - 新增 `search` 聚合来源计数用例；
+  - 新增 `explore` 聚合来源计数用例。
+- ⚠️ 与 legado 的已知差异：当前仅展示计数角标，尚未提供“同名书源展开/换源列表”交互。
+
+### 12.17 本轮追加完成（来源角标点击选源）
+
+- ✅ legado 对照已补齐：`../legado/app/src/main/java/io/legado/app/ui/book/search/SearchAdapter.kt` 的 `origins` 聚合显示与 `item_search.xml` 的来源角标语义。
+- ✅ 已扩展 `lib/features/discovery/domain/models/search_result_entity.dart`：
+  - 新增 `SearchResultOriginEntity`，承载同名书的来源明细；
+  - `SearchResultEntity` 新增 `origins` 字段（与 `originCount` 对应）。
+- ✅ 已改造 `lib/features/discovery/domain/services/legado_search_service.dart`：
+  - 聚合同名结果时同步保留每个来源的明细（`sourceUrl/sourceName/bookUrl/...`）；
+  - 去重策略维持“同一来源仅保留一条明细”，并继续输出 `originCount`。
+- ✅ 已改造 `lib/features/discovery/presentation/explore_results_page.dart`：
+  - 来源角标支持点击；
+  - 当同名书来源数 > 1 时弹出 `CupertinoActionSheet` 供选择来源；
+  - 选择后按所选来源打开详情页（source/bookUrl/cover/intro 跟随所选来源）。
+- ✅ 已扩展测试 `test/features/discovery/legado_search_service_test.dart`：
+  - `search` 与 `explore` 聚合用例新增 `origins` 明细断言。
+- ⚠️ 与 legado 的已知差异：当前使用弹层选源后进入详情，尚未实现“结果项内直接展开同名来源列表”的长列表交互。
+
+### 12.18 本轮追加完成（选源弹层信息增强）
+
+- ✅ legado 对照已补齐：
+  - `../legado/app/src/main/java/io/legado/app/ui/book/changesource/ChangeBookSourceDialog.kt`
+  - `../legado/app/src/main/java/io/legado/app/ui/book/changesource/ChangeBookSourceAdapter.kt`
+  - `../legado/app/src/main/res/layout/item_change_source.xml`
+- ✅ 已改造 `lib/features/discovery/presentation/explore_results_page.dart` 的来源选择弹层：
+  - 每个来源项除 `sourceName` 外，追加展示“最新章节 / 字数”摘要（有值才显示）；
+  - 自动标注“当前”来源，并作为默认动作样式；
+  - 选择来源后继续按所选来源参数进入详情页。
+- ✅ 保持现有行为：列表卡片点击仍走默认来源；仅点击来源角标时触发选源弹层。
+- ⚠️ 与 legado 的已知差异：当前仍为轻量 `CupertinoActionSheet`，未实现 legado 换源页中的评分、置顶/置底、禁用、编辑等深度管理操作。
+
+### 12.19 本轮追加完成（来源选择升级为可搜索列表）
+
+- ✅ legado 对照已补齐并完整读取：
+  - `../legado/app/src/main/java/io/legado/app/ui/book/changesource/ChangeBookSourceDialog.kt`
+  - `../legado/app/src/main/java/io/legado/app/ui/book/changesource/ChangeBookSourceAdapter.kt`
+  - `../legado/app/src/main/res/layout/item_change_source.xml`
+- ✅ 已改造 `lib/features/discovery/presentation/explore_results_page.dart`：
+  - 来源角标点击后，弹层从 `ActionSheet` 升级为“可搜索 + 可滚动”的来源列表面板；
+  - 支持按来源名/来源URL/最新章节/字数筛选；
+  - 列表项展示来源名 + 摘要（最新章节、字数），并标注“当前”来源；
+  - 选择后继续按所选来源进入详情页。
+- ✅ 保持交互边界：
+  - 卡片主体点击仍走默认来源详情；
+  - 仅来源角标入口触发来源列表选择。
+- ⚠️ 与 legado 的已知差异：当前来源列表未实现 legado 换源页中的评分、置顶/置底、禁用、编辑与换源后目录加载流程，仅提供轻量来源选择能力。
+
+### 12.20 本轮追加完成（来源长按管理：置顶/置底/禁用/删除）
+
+- ✅ legado 对照已补齐并完整读取：
+  - `../legado/app/src/main/java/io/legado/app/ui/book/changesource/ChangeBookSourceDialog.kt`
+  - `../legado/app/src/main/java/io/legado/app/ui/book/changesource/ChangeBookSourceAdapter.kt`
+  - `../legado/app/src/main/java/io/legado/app/ui/book/changesource/ChangeBookSourceViewModel.kt`
+  - `../legado/app/src/main/java/io/legado/app/data/dao/BookSourceDao.kt`
+- ✅ 已扩展书源仓储能力：
+  - `BookSourceRepository` 新增 `setBookSourceEnabled / moveBookSourceToTop / moveBookSourceToBottom`；
+  - `BookSourceLocalRepository` 已实现上述操作；
+  - `AppDatabase` 新增 `setBookSourceEnabled / getBookSourceMinOrder / getBookSourceMaxOrder / updateBookSourceOrder`。
+- ✅ 已修正排序语义：`getBookSources/watchBookSources` 改为按 `customOrder` 排序（对齐 legado `BookSourceDao`）。
+- ✅ 已改造 `lib/features/discovery/presentation/explore_results_page.dart`：
+  - 来源列表项支持长按；
+  - 长按后弹出来源管理菜单（置顶/置底/禁用/删除）；
+  - 操作后自动按首屏重载发现结果，保证排序/可见性即时生效；
+  - 对高风险操作补充确认弹窗与失败提示。
+- ✅ 已补充测试：
+  - `test/core/storage/app_database_test.dart` 新增 `customOrder` 排序与置顶/置底回归用例；
+  - 三个内存仓储测试桩均已对齐新接口与排序行为。
+- ⚠️ 与 legado 的已知差异：
+  - 当前长按菜单尚未实现“编辑书源”入口（依赖后续书源管理页）；
+  - 尚未实现来源评分（赞/踩）与按评分排序，仅保留 `customOrder` 语义。
+
+### 12.21 本轮追加完成（来源评分 + 排序对齐）
+
+- ✅ legado 对照已补齐并完整读取：
+  - `../legado/app/src/main/java/io/legado/app/help/config/SourceConfig.kt`
+  - `../legado/app/src/main/java/io/legado/app/ui/book/changesource/ChangeBookSourceAdapter.kt`
+  - `../legado/app/src/main/java/io/legado/app/ui/book/changesource/ChangeBookSourceViewModel.kt`
+- ✅ 已新增 `lib/features/source_management/data/local/source_score_local_repository.dart`：
+  - 按 legado 语义维护“单书单源评分（-1/0/1）”与“书源累计评分”；
+  - 同一书再次评分按差值更新来源总分（与 `SourceConfig.setBookScore` 一致）。
+- ✅ 已扩展 `lib/features/discovery/presentation/explore_results_page.dart` 来源弹层：
+  - 每个来源项新增“👍/👎”评分入口（可二次点击回到 0）；
+  - 展示“评分 / 书源评分”；
+  - 排序规则对齐 legado：`书籍评分(desc) -> 书源评分(desc) -> customOrder(asc)`。
+- ✅ 已补充清理逻辑：禁用/删除来源时同步清理该来源评分数据，避免脏数据残留。
+- ✅ 已新增测试 `test/features/source_management/source_score_local_repository_test.dart`：
+  - 覆盖首次评分、重复改分差值更新、清理来源评分三类核心场景。
+- ⚠️ 与 legado 的已知差异：
+  - 当前评分入口置于来源选择弹层内，尚未在列表项左侧做完全同构图标布局（功能语义已一致）。
+
+### 12.22 本轮追加完成（评分图标布局进一步贴近 legado）
+
+- ✅ legado 对照已复核并完整读取：
+  - `../legado/app/src/main/res/layout/item_change_source.xml`
+  - `../legado/app/src/main/java/io/legado/app/ui/book/changesource/ChangeBookSourceAdapter.kt`
+- ✅ 已改造 `lib/features/discovery/presentation/explore_results_page.dart` 来源列表项：
+  - 评分入口从“行内文本按钮”改为“左侧上下双图标”布局；
+  - 图标语义与颜色对应 legado：上方点赞（红）、下方点踩（蓝），激活态/非激活态区分明显；
+  - 点击逻辑保持不变：`1 <-> 0`、`-1 <-> 0`，并在弹层内即时重排。
+- ✅ 保持既有交互：来源项点击进入详情、长按仍可进入来源管理菜单。
+- ⚠️ 与 legado 的已知差异：当前使用 Cupertino 图标集近似 `ic_praise` 视觉，未引入 legado 原始矢量资源。
+
+### 12.23 本轮追加完成（接入 legado 同款矢量评分图标）
+
+- ✅ legado 对照已补齐并完整读取：
+  - `../legado/app/src/main/res/drawable/ic_praise.xml`
+  - `../legado/app/src/main/res/layout/item_change_source.xml`
+- ✅ 已新增 Flutter 侧图标资产：`assets/icons/ic_praise.svg`（由 legado `vector pathData` 转换）。
+- ✅ 已更新 `pubspec.yaml`：
+  - 依赖新增 `flutter_svg`；
+  - 资产注册 `assets/icons/ic_praise.svg`。
+- ✅ 已改造 `lib/features/discovery/presentation/explore_results_page.dart`：
+  - 点赞图标改为 `ic_praise.svg`；
+  - 点踩图标采用同一 SVG 通过 `rotateX(pi)` 翻转复用（与 legado `rotationX=180` 语义一致）；
+  - 颜色仍保持“红赞蓝踩 + 激活/非激活”规则。
+- ✅ 已验证：`flutter analyze` 与发现域回归测试通过。
+
+### 12.24 本轮追加完成（当前来源标识替换为 legado 勾选图标）
+
+- ✅ legado 对照已补齐并完整读取：
+  - `../legado/app/src/main/res/drawable/ic_check.xml`
+  - `../legado/app/src/main/res/layout/item_change_source.xml`
+- ✅ 已新增 Flutter 侧图标资产：`assets/icons/ic_check.svg`（由 legado `vector pathData` 转换）。
+- ✅ 已更新 `pubspec.yaml` 资产注册：`assets/icons/ic_check.svg`。
+- ✅ 已改造 `lib/features/discovery/presentation/explore_results_page.dart`：
+  - 来源列表中“当前”文本已替换为右侧勾选图标（`ic_check.svg`）；
+  - 视觉语义更贴近 legado 的 `iv_checked`。
+- ✅ 已验证：`flutter analyze` 与发现域回归测试通过。
+
+### 12.25 本轮追加完成（当前来源勾选区尺寸与占位对齐）
+
+- ✅ legado 对照已复核：`item_change_source.xml` 中 `iv_checked` 为 `40dp x 40dp`，并在未选中时保持占位（`invisible`）。
+- ✅ 已改造 `lib/features/discovery/presentation/explore_results_page.dart`：
+  - 右侧“当前来源”区域改为固定 `40x40` 容器；
+  - 选中时显示 `24x24` 勾选图标，未选中时保留空占位，避免行内文字抖动。
+- ✅ 已验证：`dart format`、`flutter analyze`、发现域回归测试通过。
+
+### 12.26 本轮追加完成（主流程统一执行器 + 核心链路对齐）
+
+- ✅ legado 对照已完整读取并提炼共同语义：
+  - `../legado/app/src/main/java/io/legado/app/model/webBook/WebBook.kt`
+  - `../legado/app/src/main/java/io/legado/app/model/webBook/BookList.kt`
+  - `../legado/app/src/main/java/io/legado/app/model/webBook/BookInfo.kt`
+  - `../legado/app/src/main/java/io/legado/app/model/webBook/BookChapterList.kt`
+  - `../legado/app/src/main/java/io/legado/app/model/webBook/BookContent.kt`
+  - `../legado/app/src/main/java/io/legado/app/model/webBook/SearchModel.kt`
+- ✅ 已新增统一规则执行上下文：`lib/legado/model/web_book/rule_execution_context.dart`
+  - 统一 URL 模板替换（`{{key}}/{{page}}` 等）与相对链接解析；
+  - 统一 header JSON 解析；
+  - 统一请求执行输出（`requestUrl/responseUrl/body/redirected`）。
+- ✅ 已扩展网络网关：`lib/core/network/legado_http_gateway.dart`
+  - 新增 `getResponse(...)` 返回最终 URL 与重定向标记；
+  - 旧 `get(...)` 继续保留，兼容现有调用。
+- ✅ 已接入主链路：`lib/legado/model/web_book/web_book.dart`
+  - `searchBook/exploreBook/getBookInfo/getChapterList/getContent` 统一走执行上下文；
+  - 搜索新增 `bookUrlPattern` 命中详情页分支（按详情规则返回单书）；
+  - `ruleToc` 无 `url` 时，`tocUrl` 回退基准改为 `bookUrl`（对齐 legado 目录抓取语义）。
+- ✅ 已补充测试：
+  - `test/core/network/legado_http_gateway_test.dart`
+  - `test/legado/model/web_book/rule_execution_context_test.dart`
+  - `test/features/discovery/legado_search_service_test.dart`（新增详情页搜索分支）
+  - `test/features/reader/legado_reader_service_test.dart`（新增相对 `tocUrl` 回退）
+- ✅ 已验证：
+  - `flutter analyze lib/core/network/legado_http_gateway.dart lib/legado/model/web_book/rule_execution_context.dart lib/legado/model/web_book/web_book.dart`
+  - `flutter test test/core/network/legado_http_gateway_test.dart test/legado/model/web_book/rule_execution_context_test.dart test/features/discovery/legado_search_service_test.dart test/features/reader/legado_reader_service_test.dart`
+
+- ⚠️ 与 legado 的已知差异（仍待推进）：
+  - 尚未接入 `loginCheckJs`、`preUpdateJs`、`content.webJs/sourceRegex` JS 执行链路；
+  - 尚未实现目录/正文多页抓取与并发分页（`nextTocUrl/nextContentUrl` 全量语义）；
+  - 尚未实现 `RuleData/Chapter` 级上下文变量在统一执行器中的完整透传。

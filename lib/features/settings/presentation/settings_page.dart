@@ -100,9 +100,44 @@ class _SettingsPageState extends State<SettingsPage> {
         'bookSourceName': 'Mock源（legado流程演示）',
         'bookSourceType': 0,
         'enabled': true,
-        'enabledExplore': false,
+        'enabledExplore': true,
         'bookSourceComment': '用于演示搜索->入架->目录->正文全链路',
         'lastUpdateTime': now,
+        'exploreUrl': '''
+          [
+            {
+              "title": "推荐",
+              "url": "mock://explore?page={{page}}",
+              "style": {
+                "layout_flexBasisPercent": 0.5,
+                "layout_alignSelf": "center"
+              }
+            },
+            {
+              "title": "热门",
+              "url": "mock://explore-hot?page={{page}}"
+            }
+          ]
+        ''',
+        'exploreScreen': '''
+          [
+            {
+              "title": "热门",
+              "style": {
+                "layout_alignSelf": "flex_end",
+                "layout_flexBasisPercent": 1
+              }
+            }
+          ]
+        ''',
+        'ruleExplore': {
+          'bookList': 'books',
+          'name': 'name',
+          'author': 'author',
+          'bookUrl': 'bookUrl',
+          'coverUrl': 'coverUrl',
+          'intro': 'intro',
+        },
         'searchUrl': 'mock://search?key={{key}}&page={{page}}',
         'ruleSearch': {
           'bookList': 'books',
@@ -117,8 +152,13 @@ class _SettingsPageState extends State<SettingsPage> {
           'name': 'name',
           'author': 'author',
           'intro': 'intro',
+          'kind': 'kind',
+          'wordCount': 'wordCount',
+          'lastChapter': 'lastChapter',
+          'updateTime': 'updateTime',
           'coverUrl': 'coverUrl',
           'tocUrl': 'tocUrl',
+          'canReName': 'allowRename',
         },
         'ruleToc': {
           'url': 'mock://toc?book={{bookUrl}}',
