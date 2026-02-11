@@ -71,7 +71,9 @@ class _DiscoveryPageState extends State<DiscoveryPage> {
       if (!mounted) return;
       setState(() {
         _results = results;
-        _message = results.isEmpty ? '没有搜索到结果，请检查书源规则' : '找到 ${results.length} 条结果';
+        _message = results.isEmpty
+            ? '没有搜索到结果，请检查书源规则'
+            : '找到 ${results.length} 条结果';
       });
     } catch (_) {
       if (!mounted) return;
@@ -92,6 +94,21 @@ class _DiscoveryPageState extends State<DiscoveryPage> {
       _results = const [];
       _message = '已清空搜索结果';
     });
+  }
+
+  void _openBookDetail(SearchResultEntity result) {
+    context.push(
+      '/discovery/book-detail',
+      extra: {
+        'sourceUrl': result.sourceUrl,
+        'sourceName': result.sourceName,
+        'name': result.name,
+        'author': result.author,
+        'bookUrl': result.bookUrl,
+        'coverUrl': result.coverUrl,
+        'intro': result.intro,
+      },
+    );
   }
 
   Future<void> _addToShelfAndRead(SearchResultEntity result) async {
@@ -137,9 +154,7 @@ class _DiscoveryPageState extends State<DiscoveryPage> {
   Widget build(BuildContext context) {
     return CustomScrollView(
       slivers: [
-        const CupertinoSliverNavigationBar(
-          largeTitle: Text('发现'),
-        ),
+        const CupertinoSliverNavigationBar(largeTitle: Text('发现')),
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -181,30 +196,47 @@ class _DiscoveryPageState extends State<DiscoveryPage> {
                     description: Text('先在“设置”里导入 legado 兼容书源，再回来搜索。'),
                     child: SizedBox.shrink(),
                   ),
-                ..._results.take(30).map(
-                  (result) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: ShadCard(
-                      title: Text(result.name),
-                      description: Text(
-                        '${result.author ?? '未知作者'} · ${result.sourceName}',
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(result.bookUrl ?? '无详情链接'),
-                          const SizedBox(height: 8),
-                          ShadButton.outline(
-                            onPressed: _searching
-                                ? null
-                                : () => _addToShelfAndRead(result),
-                            child: const Text('加入书架并阅读'),
+                ..._results
+                    .take(30)
+                    .map(
+                      (result) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: ShadCard(
+                          title: Text(result.name),
+                          description: Text(
+                            '${result.author ?? '未知作者'} · ${result.sourceName}',
                           ),
-                        ],
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(result.bookUrl ?? '无详情链接'),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: ShadButton.outline(
+                                      onPressed: _searching
+                                          ? null
+                                          : () => _openBookDetail(result),
+                                      child: const Text('查看详情'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: ShadButton(
+                                      onPressed: _searching
+                                          ? null
+                                          : () => _addToShelfAndRead(result),
+                                      child: const Text('快速阅读'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
               ],
             ),
           ),

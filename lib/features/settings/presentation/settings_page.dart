@@ -109,7 +109,16 @@ class _SettingsPageState extends State<SettingsPage> {
           'name': 'name',
           'author': 'author',
           'bookUrl': 'bookUrl',
+          'coverUrl': 'coverUrl',
           'intro': 'intro',
+        },
+        'ruleBookInfo': {
+          'url': 'mock://book-info?book={{bookUrl}}',
+          'name': 'name',
+          'author': 'author',
+          'intro': 'intro',
+          'coverUrl': 'coverUrl',
+          'tocUrl': 'tocUrl',
         },
         'ruleToc': {
           'url': 'mock://toc?book={{bookUrl}}',
@@ -117,9 +126,7 @@ class _SettingsPageState extends State<SettingsPage> {
           'chapterName': 'title',
           'chapterUrl': 'url',
         },
-        'ruleContent': {
-          'content': 'content',
-        },
+        'ruleContent': {'content': 'content'},
       },
       {
         'bookSourceUrl': 'https://openlibrary.org',
@@ -159,9 +166,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return CustomScrollView(
       slivers: [
-        const CupertinoSliverNavigationBar(
-          largeTitle: Text('设置'),
-        ),
+        const CupertinoSliverNavigationBar(largeTitle: Text('设置')),
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.all(16),
