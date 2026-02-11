@@ -1,0 +1,92 @@
+# Soupbag iOS Build Workflow
+# 每次推送代码自动编译生成未签名的 IPA
+
+name: Build iOS
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Flutter 缓存（包含 SDK 和 pub 缓存）
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.9'
+          channel: 'stable'
+          cache: true
+
+      # CocoaPods 缓存
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: pods-
+
+      # 获取依赖（并行安装 pods）
+      - name: Get dependencies
+        run: |
+          flutter pub get
+          cd ios && pod install --repo-update || pod install
+
+      # 禁用代码签名
+      - name: Disable Codesign
+        run: |
+          cd ios
+          sed -i '' 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/"CODE_SIGNING_REQUIRED=YES"/"CODE_SIGNING_REQUIRED=NO"/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/"CODE_SIGNING_ALLOWED=YES"/"CODE_SIGNING_ALLOWED=NO"/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = "";/g' Runner.xcodeproj/project.pbxproj
+
+          echo 'CODE_SIGNING_ALLOWED=NO' >> Flutter/Release.xcconfig
+          echo 'CODE_SIGNING_REQUIRED=NO' >> Flutter/Release.xcconfig
+          echo 'CODE_SIGN_IDENTITY=""' >> Flutter/Release.xcconfig
+          echo 'PROVISIONING_PROFILE_SPECIFIER=""' >> Flutter/Release.xcconfig
+          echo 'CODE_SIGNING_ALLOWED=NO' >> Flutter/Debug.xcconfig
+          echo 'CODE_SIGNING_REQUIRED=NO' >> Flutter/Debug.xcconfig
+
+      # 构建 iOS
+      - name: Build iOS
+        run: flutter build ios --release --no-codesign
+
+      # 创建 IPA
+      - name: Create IPA
+        run: |
+          mkdir -p build/ios/ipa
+          cd build/ios/iphoneos
+          mkdir Payload
+          cp -r Runner.app Payload/
+          zip -rq ../ipa/Soupbag-unsigned.ipa Payload
+
+      # 发布到 Releases
+      - name: Deploy
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          tag: nightly
+          commit: ${{ github.sha }}
+          name: Nightly Build
+          body: |
+            📦 Commit: ${{ github.sha }}
+            ⏰ Workflow: ${{ github.run_id }}
+          artifacts: "build/ios/ipa/Soupbag-unsigned.ipa"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          removeArtifacts: true
+          replacesArtifacts: true
+          makeLatest: true
